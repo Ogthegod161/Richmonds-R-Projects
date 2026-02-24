@@ -1,0 +1,337 @@
+---
+title: "Loan"
+author: "William, Oliver, Mohamad, Mavis"
+date: "2023-03-27"
+output: html_document
+---
+
+```{r}
+#loading libraries
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(tree)
+```
+
+```{r}
+#loading dataset
+loandata<- read.csv("Loan_Default.csv")
+head(loandata)
+```
+
+```{r}
+#checking the number of rows and columns
+dim(loandata)
+```
+
+Data quality checking and cleaning\
+\*check if variables are have the right data type \* check for missing values \* check for outliers \* check for duplicates
+
+```{r}
+#checking the datatypes of columns 
+str(loandata)
+```
+
+The various features are in their right data type except ID which we will change from numeric to categorecal.
+
+```{r}
+#changing Id from numeric to factor 
+loandata$ID=as.factor(loandata$ID)
+```
+
+#Checking for missing values
+
+```{r}
+summary(loandata)
+```
+
+```{r}
+### calculate and inspect a table of the percentage of NA per feature
+loan_NA_count <- apply(is.na(loandata),2,sum)
+loan_NA_count_perc <- loan_NA_count /dim(loandata)[1] * 100
+loan_NA_count_perc
+```
+
+
+rate of interest has 24% of missing values which is alot so we will go ahead to impute missing values
+
+```{r}
+```
+
+
+
+```{r}
+#checking the distribution of rate of interest , interest rate spread,Upfront_charges
+hist(loandata$rate_of_interest)
+hist(loandata$Interest_rate_spread)
+hist(loandata$Upfront_charges)
+
+```
+
+```{r}
+#making a copy of original dataset
+loan_copy=loandata
+```
+
+```{r}
+#imputing missing values with median
+median_rate_of_interest <- median(loan_copy$rate_of_interest, na.rm = T)
+loan_copy[is.na(loan_copy$rate_of_interest), 'rate_of_interest'] =median_rate_of_interest
+```
+
+```{r}
+median_Interest_rate_spread <- median(loan_copy$Interest_rate_spread, na.rm = T)
+loan_copy[is.na(loan_copy$Interest_rate_spread), 'Interest_rate_spread'] =median_Interest_rate_spread
+```
+
+
+```{r}
+#replacing NAs with O for up_charges
+loan_copy[is.na(loan_copy$Upfront_charges), 'Upfront_charges'] =0
+```
+
+```{r}
+loan_copy_noNA <- na.omit(loan_copy)
+```
+
+```{r}
+dim(loan_copy_noNA)
+```
+
+```{r}
+#checking missing value for loan copy
+#loan_copy_NA_count <- apply(is.na(loan_copy),2,sum)
+#loan_copy_NA_count_perc <- loan_copy_NA_count /dim(loan)[1] * 100
+#loan_copy_NA_count_perc
+
+```
+
+```{r}
+### 3.1 remove duplicate instances from the data set obtained from 2.4
+loan_copy_noNA_nodup <- unique(loan_copy_noNA)
+dim(loan_copy_noNA_nodup)
+```
+
+```{r}
+##saving cleaned dataset
+loan_clean<-loan_copy_noNA_nodup
+```
+
+##EDA 1.0 Summary Statistics
+# definition
+# Aim to max insights
+
+
+# summary analytics and graphical analytics(box,hist,scat)
+
+```{r}
+#inspect cleaned dataset
+str(loan_clean)
+```
+
+```{r}
+#Determine mean, median, mode by getting a summary
+summary(loan_clean)
+```
+
+```{r}
+loan_clean$year <- as.factor(loan_clean$year)
+```
+
+```{r}
+#calculate correlation coefficient for each pair of variables
+cor(loan_clean[, sapply(loan_clean, is.numeric)])
+```
+
+```{r}
+# generate a histogram for each variable
+opar <- par(no.readonly = TRUE)
+par(mfrow = c(2,3))
+hist(loan_clean$loan_amount, main = "loan_amount", xlab = "loan_amount")
+hist(loan_clean$rate_of_interest, main = "rate_of_interest", xlab = "rate_of_interest")
+hist(loan_clean$Interest_rate_spread, main = "Interest_rate_spread", xlab = "Interest_rate_spread")
+hist(loan_clean$Upfront_charges, main = "Upfront_charges", xlab = "Upfront_charges")
+hist(loan_clean$term, main = "term", xlab = "term")
+hist(loan_clean$property_value, main = "property_value", xlab = "property_value")
+hist(loan_clean$income, main = "income", xlab = "income")
+hist(loan_clean$Credit_Score, main = "Credit_Score", xlab = "Credit_Score")
+hist(loan_clean$LTV, main = "LTV", xlab = "LTV")
+hist(loan_clean$Status, main = "Status", xlab = "Status")
+hist(loan_clean$dtir1, main = "dtir1", xlab = "dtir1")
+
+par(opar)
+```
+
+
+```{r}
+# generate a density plot for each variable
+opar <- par(no.readonly = TRUE)
+par(mfrow = c(2,3))
+plot(density(loan_clean$loan_amount), main = "loan_amount", xlab = "loan_amount")
+plot(density(loan_clean$rate_of_interest), main = "rate_of_interest", xlab = "rate_of_interest")
+plot(density(loan_clean$Interest_rate_spread), main = "Interest_rate_spread", xlab = "Interest_rate_spread")
+plot(density(loan_clean$Upfront_charges), main = "Upfront_charges", xlab = "Upfront_charges")
+plot(density(loan_clean$term), main = "term", xlab = "term")
+plot(density(loan_clean$property_value), main = "property_value", xlab = "property_value")
+plot(density(loan_clean$income), main = "income", xlab = "income")
+plot(density(loan_clean$Credit_Score), main = "Credit_Score", xlab = "Credit_Score")
+plot(density(loan_clean$LTV), main = "LTV", xlab = "LTV")
+plot(density(loan_clean$Status), main = "Status", xlab = "Status")
+plot(density(loan_clean$dtir1), main = "dtir1", xlab = "dtir1")
+
+par(opar)
+```
+
+```{r}
+# generate a boxplot graph
+opar <- par(no.readonly = TRUE)
+boxplot(loan_clean$loan_amount, border = 'white', yaxt = 'n')
+boxplot(loan_clean$rate_of_interest, border = 'white', yaxt = 'n')
+
+abline(h = 1, lty = 'dashed', lwd = 2, col = 'darkgrey')
+
+boxplot(loan_clean$loan_amount, border = 'blue', yaxt = 'n', add = T)
+boxplot(loan_clean$rate_of_interest, border = 'blue', yaxt = 'n', add = T)
+
+axis(2, )
+
+par(opar)
+```
+```{r}
+#changing status to factoe
+loan_clean$Status<-as.factor(loan_clean$Status)
+```
+
+```{r}
+loan_num<-loan_clean[, sapply(loan_clean, is.numeric)]
+```
+```{r}
+### 3.1 perform PCA on the dataset (without the score variable)
+pc_num <- prcomp(loan_num, center = T, scale. = T)
+```
+
+```{r}
+### 4.1 calculate the proportion of exaplained variance (PEV) from the std values
+pc_num_var <- pc_num$sdev^2
+pc_num_PEV <- pc_num_var / sum(pc_num_var)
+pc_num_PEV
+```
+
+```{r}
+plot(pc_num)
+```
+
+
+```{r}
+### 4.2 plot the cumulative PEV
+opar <- par(no.readonly = TRUE)
+plot(
+  cumsum(pc_num_PEV),
+  ylim = c(0,1),
+  xlab = 'PC',
+  ylab = 'cumulative PEV',
+  pch = 20,
+  col = 'orange'
+)
+abline(h = 0.8, col = 'red', lty = 'dashed')
+par(opar)
+### 4.3 get and inspect the loadings
+pc_num_loadings <- pc_num$rotation
+```
+
+
+
+
+#pca loadings pca\$... #pca components cor of scores
+```{r}
+pc_num_loadings
+```
+
+```{r}
+# plot the loadings for the first three PCs as a barplot
+#   note: two vectors for colours and labels are created for convenience
+#     for details on the other parameters see the help for barplot and legend
+opar <- par(no.readonly = TRUE)
+colvector = c('red', 'orange', 'yellow', 'green', 'cyan', 'blue')
+labvector = c('PC1', 'PC2', 'PC3')
+barplot(
+  pc_num_loadings[,c(1:3)],
+  beside = T,
+  yaxt = 'n',
+  names.arg = labvector,
+  col = colvector,
+  ylim = c(-1,1),
+  border = 'white',
+  ylab = 'loadings'
+)
+axis(2, seq(-1,1,0.1))
+legend(
+  'bottomright',
+  bty = 'n',
+  col = colvector,
+  pch = 15,
+  row.names(pc_num_loadings)
+)
+par(opar)
+```
+
+
+#selected features
+Credit_Score
+rate_of_interest
+Upfront_charges
+loan_amount
+property_value 
+income 
+
+```{r}
+# set random seed
+set.seed(1999)
+# create a 70/30 training/test set split
+n_rows <- nrow(loan_clean)
+# sample 70% (n_rows * 0.7) indices in the ranges 1:nrows
+training_idx <- sample(n_rows, n_rows * 0.7)
+# filter the data frame with the training indices (and the complement)
+training_loan_clean <- loan_clean[training_idx,]
+test_loan_clean <- loan_clean[-training_idx,]
+```
+
+
+
+```{r}
+### 2.1 define a formula for predicting the income
+loan_clean_formula =  Status ~ Credit_Score + rate_of_interest + Upfront_charges + loan_amount + property_value + income 
+### 2.2 train a decision tree
+dt_loan_clean <- tree(loan_clean_formula, data = training_loan_clean)
+```
+
+```{r}
+#prediction
+dt_loan_clean_pred <- predict(dt_loan_clean, test_loan_clean[,-33], type= "class")
+```
+
+
+```{r}
+# create a table with actual values and the two predictions
+loan_clean_results <- data.frame(
+  actual = test_loan_clean$Status,
+  unpruned = dt_loan_clean_pred
+)
+
+
+### 3.4 create a contingency table of the actual VS predicted for each model
+table_p_dt_results <- table(loan_clean_results[,c('actual','unpruned')])
+
+### 3.4 calculate accuracy values from the contingency tables
+acc_p_dt_results <- sum(diag(table_p_dt_results)) / sum(table_p_dt_results)
+acc_p_dt_results
+
+
+```
+
+
+
+
+
+
+

@@ -1,0 +1,421 @@
+---
+title: "An analysis of admission criteria and impact on student success"
+name: Richmond Owusu Benefo
+student ID: 2150133
+output: html_document
+date: "2023-07-16"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+1. Loading the relevant libraries for my dissertation
+ggplot2 is employed for data visualization, offering a flexible grammar of graphics.
+
+Tidyverse is a collection of packages designed for data manipulation and visualization, often used for its easy-to-read syntax.
+
+Dplyr is included for data transformation tasks such as filtering, summarizing, and rearranging data.
+
+Tree is utilized for fitting decision trees, a type of predictive model.
+    
+Reshape2 aids in data reshaping, making it easier to aggregate or pivot data for analysis.
+    
+caret (Classification And REgression Training) provides tools for training and evaluating different types of predictive models.
+
+RandomForest is used for implementing the Random Forest algorithm, a robust ensemble learning method.
+    
+e1071 contains functions for statistics and machine learning, including the Support Vector Machines used in the analysis.
+```{r}
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(tree)
+library(reshape2)
+library(caret)
+library(randomForest)
+library(e1071)
+
+```
+
+1.1 Loading the dataset for my analysis 
+```{r}
+#loading dataset
+univers<-read.csv("diss.csv")
+```
+
+1.2 This syntax provides a concise summary of each variable in a dataset. 
+```{r}
+summary(univers)
+```
+
+1.2.1 The head() function in R is used to display the first few rows of a data object. This provides a quick snapshot of the data and allows reader to inspect the first few entries across all columns. This is often helpful for getting a sense of what kind of data one is  dealing with and what each column represents.
+```{r}
+head(univers)
+```
+
+2.1 Data quality checking and cleaning\
+\*check if variables are have the right data type \* check for missing values \* check for outliers \* check for duplicates.
+```{r}
+#this is to check the number of colums and rows 
+dim(univers)
+```
+
+
+2.2 This syntax in R is used to display the internal structure of an R object, providing a compact, human-readable summary of the object. When we run str(univers), R will show varieties of information about the univers data frame:
+```{r}
+str(univers)
+```
+The various features are in their right data type except ID which we will change from numeric to categorecal.
+
+
+2.3 This syntax calculates the number and percentage of missing values (NA) in each column of the univers data frame.
+```{r}
+### calculate and inspect a table of the percentage of NA per feature
+univers_NA_count <- apply(is.na(univers),2,sum)
+univers_NA_count_perc <- univers_NA_count /dim(univers)[1] * 100
+univers_NA_count_perc
+```
+after running this synthax I realized SATVR75 has 33.7% of NA's,SATMT75 has 33.2% of NA's,  ACTEN75 has 36.9 of NA's and ACTMT75 has 37% of NA's. Thats a lot of NA's so we go ahead and impute missing values 
+
+
+3.1 Explanatory Data Analysis 
+Based on my research Question. we need to use the Histogram and density plot syntax to check the distribution of the numerical variables.
+```{r}
+#checking the distribution for numeric variables "SATVR75, SATMT75, ACTEN75 and ACTMT75
+hist(univers$SATVR75)
+hist(univers$SATMT75)
+hist(univers$ACTEN75)
+hist(univers$ACTMT75)
+hist(univers$Admission.Rate)
+hist(univers$Admissions)
+hist(univers$Enrollment)
+```
+
+```{r}
+
+# Transform the data from wide to long format
+univers_long <- pivot_longer(univers, cols = c(SATVR75, SATMT75, ACTEN75, ACTMT75, Admission.Rate, Admissions, Enrollment))
+
+
+
+# Create the histogram with facetting
+ggplot(univers_long, aes(value)) +
+  geom_histogram(bins = 20) +
+  facet_wrap(~ name, scales = "free") +
+  theme_minimal() +
+  labs(x = "Values", y = "Count", title = "Distribution of Various Variables") 
+
+```
+
+Transform the data 
+Two key operations are performed. First, the data in univers is transformed from a "wide" to a "long" format using the pivot_longer function, facilitating easier visualization and analysis. This transformation allows multiple variables (SAT scores, ACT scores, admission rates, etc.) to be represented in a single column, named value, along with an additional column, named name, that identifies the original variable.
+
+```{r}
+# Transform the data from wide to long format
+univers_long <- pivot_longer(univers, cols = c(SATVR75, SATMT75, ACTEN75, ACTMT75, Admission.Rate, Admissions, Enrollment))
+
+# Create the density plot with facetting
+ggplot(univers_long, aes(value)) +
+  geom_density(fill = "blue", alpha = 0.4) +
+  facet_wrap(~ name, scales = "free") +
+  theme_minimal() +
+  labs(x = "Values", y = "Density", title = "Distribution of Various Variables") 
+
+```
+
+Density Plot
+A density plot is generated using ggplot2 to visualize the distribution of these variables. Faceting is applied via facet_wrap, allowing separate density plots for each variable while enabling individual axis scaling. The plot aims to show how the values of these variables are distributed, offering insights into their underlying statistical characteristics. 
+```{r}
+plot(density(univers$SATVR75, na.rm=TRUE), main="Density plot for SATVR75")
+plot(density(univers$SATMT75, na.rm=TRUE), main="Density plot for SATMT75")
+plot(density(univers$ACTEN75, na.rm=TRUE), main="Density plot for ACTEN75")
+plot(density(univers$ACTMT75, na.rm=TRUE), main="Density plot for ACTMT75")
+plot(density(univers$Admission.Rate, na.rm=TRUE), main="Density plot for Admission.Rate")
+plot(density(univers$Admissions, na.rm=TRUE), main="Density plot for Admissions")
+plot(density(univers$Enrollment, na.rm=TRUE), main="Density plot for Enrollment")
+
+```
+
+3.2 The syntax used is for generating bar plots, specifically to visualize the frequency distribution of categorical variables ('State' and 'Region') in the univers data frame.
+```{r}
+#barplot to check for categorical 
+barplot(table(univers$State), main="State", xlab="States", ylab="Frequency", col="blue")
+
+barplot(table(univers$Region), main="Region", xlab="Regions", ylab="Frequency", col="blue")
+
+```
+
+3.3 Create a new column 'Admission_Rate_Category' based on the 'Admission Rate' and the threshold value. This new column categorizes institutions based on their admission rate, dividing them into two groups: "High" if the admission rate is greater than or equal to 0.8 (or 80%), and "Low" otherwise. 
+```{r}
+universe_threshold <- univers_copy %>% 
+  mutate(Admission_Rate_Category = ifelse(`Admission.Rate` >= 0.8, "High", "Low"))
+
+# Print the updated data frame
+print(universe_threshold)
+
+```
+
+3.2.1 This syntax is to Split the data frame univers by state and categorize admissions within each subset based on quantile breakpoints. By splitting the data by state, it will be easy to analyze each state's educational institutions independently.
+ Transforming continuous variables like "Admissions" into categorical ones can simplify the data and make it easier to analyze and visualize.
+```{r}
+# Split the data by state
+univers_by_state <- split(univers, univers$State)
+
+# Function to categorize admissions
+categorize_admissions <- function(universe_threshold) {
+  universe_threshold$Admissions.Category <- cut(universe_threshold$Admissions, 
+                                breaks = quantile(universe_threshold$Admissions, probs = c(0, 0.33, 0.67, 1), na.rm = TRUE), 
+                                labels = c("Low", "Medium", "High"), 
+                                include.lowest = TRUE)
+  return(categorize_admissions)
+}
+
+```
+
+3.2.2 This syntax is for calculating the correlation matrix among selected variables in a dataset and then visualizing this matrix as a heatmap using ggplot2.
+```{r}
+#calculate the coefficient matrix
+cor_matrix <- cor(univers_copy[c("Admission.Rate", "SATVR75", "SATMT75", "ACTEN75", "ACTMT75", "Applications")])
+
+print(cor_matrix)
+
+```
+```{r}
+# Melt the correlation matrix into long format for plotting
+cor_melted <- melt(cor_matrix)
+
+```
+
+3.2.3 This syntax is used for to visualize the matrix using ggplot2
+A heatmap is generated using ggplot2 to visualize the correlations among various admission-related variables such as Admission Rate, SAT/ACT scores, and Applications. The data for the heatmap is assumed to be stored in cor_melted, which contains pairwise correlation values (value) between variables (Var1 and Var2).
+
+The geom_tile() function creates the colored tiles based on these correlation values. The scale_fill_gradient2() function applies a color gradient to the tiles ranging from blue (low correlation) to white (neutral) to red (high correlation), centered at a midpoint of 0.
+```{r}
+# Create a heatmap using ggplot2
+heatmap_plot <- ggplot(cor_melted, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0, limit = c(-1, 1), space = "Lab",
+                       name = "Correlation") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(size = 14, face = "bold")) +
+  labs(title = "Correlation Heatmap of Admission Rate, SAT/ACT Scores, and Applications")
+
+# Display the heatmap
+print(heatmap_plot)
+```
+
+PREDICTION OF MODELS 
+ACTUAL MODELS VS PREDICTED MODELS 
+
+Research Question is How can we predict admission rate based on test scores 
+#SELECTED FEATURES 
+Admission.Rate
+SATVR75
+SATMT75 
+ACTEN75
+ACTMT75
+APPLICATION 
+
+This Syntax aims to split the dataset into training and test sets using a 70/30 ratio. The training set will contain 70% of the data, and the test set will contain the remaining 30%.
+```{r}
+#set random seed
+set.seed(1999)
+#create a 70/30 training/test set split
+n_rows <- nrow(universe_threshold)
+#sample 70% (n_rows * 0.7) indices in the ranges 1:nrows
+training_idx <- sample(n_rows, n_rows * 0.7)
+#filter the data frame with the training indices (and the complement)
+training_univers_clean <- universe_threshold[training_idx,]
+test_univers_clean <- universe_threshold[-training_idx,]
+
+```
+
+Decision tree model
+A Decision Tree model is created to predict university admission rates based on a set of features, which are SAT Verbal and Math 75th percentile scores (SATVR75 and SATMT75), ACT English and Math 75th percentile scores (ACTEN75 and ACTMT75), and the total number of applications received (Applications). Initially, a formula (dt_univers_formula) is defined to specify the relationship between the dependent variable (Admission.Rate) and the chosen independent variables. This formula serves as the basis for training the Decision Tree model. Subsequently, the tree() function from R's tree package is used to train the model, with the cleaned training data specified by training_univers_clean. The trained model is then stored in the variable dt_univers_clean for further evaluation and analysis. The print(dt_univers_clean) function call outputs a summary of the trained model, detailing its structure and the variables used for decision-making at each node.
+```{r}
+### 2.1 define a formula for predicting the income
+dt_univers_formula =  Admission.Rate ~ SATVR75 + SATMT75  + ACTEN75 + ACTMT75 + Applications
+### 2.2 train a decision tree
+dt_univers_clean <- tree(dt_univers_formula, data = training_univers_clean)
+
+print(dt_univers_clean)
+```
+
+```{r}
+# Prediction (use default type 'response' for regression)
+dt_univers_copy_pred <- predict(dt_univers_clean, test_univers_clean)
+
+# Calculate Mean Absolute Error (MAE)
+mae <- mean(abs(dt_univers_copy_pred - test_univers_clean$Admission.Rate))
+
+# Calculate Root Mean Squared Error (RMSE)
+rmse <- sqrt(mean((dt_univers_copy_pred - test_univers_clean$Admission.Rate)^2))
+
+# Print the MAE and RMSE values
+print(mae)
+print(rmse)
+
+# Visualize the decision tree
+plot(dt_univers_clean, main="Decision Tree for University Admission Rate Prediction")
+text(dt_univers_clean, pretty=0)
+
+```
+
+Model Building with Random Forest
+A Random Forest model is trained to predict university admission rates based on SAT and ACT 75th percentile scores, along with the total number of applications. The model is trained on a cleaned dataset (training_univers_clean) and stored in rf_univers_clean. Predictions are subsequently made on a test set (test_univers_clean) and evaluated using Mean Absolute Error (MAE) and Root Mean Squared Error (RMSE), both of which are standard metrics for assessing model performance. 
+
+```{r}
+
+# Define a formula for predicting the admission rate
+rf_univers_formula =  Admission.Rate ~ SATVR75 + SATMT75  + ACTEN75 + ACTMT75 + Applications
+
+# Train a random forest
+rf_univers_clean <- randomForest(rf_univers_formula, data = training_univers_clean)
+
+# Print the random forest model
+print(rf_univers_clean)
+
+```
+The MAE provides an average magnitude of prediction errors, while the RMSE is more sensitive to larger errors. These metrics offer insights into the reliability and effectiveness of the predictive model.
+```{r}
+# Prediction
+rf_univers_clean_pred <- predict(rf_univers_clean, test_univers_clean)
+
+# Calculate Mean Absolute Error (MAE)
+mae_rf <- mean(abs(rf_univers_clean_pred - test_univers_clean$Admission.Rate))
+
+# Calculate Root Mean Squared Error (RMSE)
+rmse_rf <- sqrt(mean((rf_univers_clean_pred - test_univers_clean$Admission.Rate)^2))
+
+# Print the MAE and RMSE values
+print(mae_rf)
+print(rmse_rf)
+
+```
+
+
+
+Linear regression
+A linear regression model is trained to predict university admission rates. The model takes into account SAT and ACT 75th percentile scores as well as the total number of applications (SATVR75, SATMT75, ACTEN75, ACTMT75, Applications). The trained model is stored in lm_univers_model and a summary is optionally produced for diagnostic purposes. For evaluation, predictions are made on a test dataset (test_univers_clean).
+```{r}
+### 2.1 Define a formula for predicting the Admission Rate
+lm_univers_formula <- Admission.Rate ~ SATVR75 + SATMT75 + ACTEN75 + ACTMT75 + Applications
+
+### 2.2 Train a linear model
+lm_univers_model <- lm(lm_univers_formula, data = training_univers_clean)
+
+# Summarize the model (optional, but can be helpful)
+summary(lm_univers_model)
+
+```
+
+Prediction and Error calculation
+Mean Absolute Error (MAE) and Root Mean Squared Error (RMSE), are calculated to assess the model's performance. MAE gives the average magnitude of prediction errors, while RMSE is more sensitive to large errors. 
+
+```{r}
+# Prediction
+lm_univers_pred <- predict(lm_univers_model, newdata = test_univers_clean)
+
+# Calculate Mean Absolute Error (MAE)
+mae <- mean(abs(lm_univers_pred - test_univers_clean$Admission.Rate))
+
+# Calculate Root Mean Squared Error (RMSE)
+rmse <- sqrt(mean((lm_univers_pred - test_univers_clean$Admission.Rate)^2))
+
+# Print the MAE and RMSE values
+print(mae)
+print(rmse)
+
+```
+
+#visualize this linear regression
+A scatter plot is generated using ggplot2 to visualize the relationship between actual and predicted admission rates. The plot employs points to represent these rates, with the x-axis showing the actual admission rate and the y-axis displaying the predicted rate from the linear model (lm_univers_pred). Additionally, a red linear regression line is fitted to the points using the geom_smooth() function, providing a visual summary of the prediction accuracy. The plot aims to offer insights into how closely the model's predictions align with the actual data, serving as a useful tool for model evaluation.
+```{r}
+# Scatter plot of actual vs. predicted values with a regression line
+ggplot(test_univers_clean, aes(x = Admission.Rate, y = lm_univers_pred)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(title = "Actual vs. Predicted Admission Rate",
+       x = "Actual Admission Rate",
+       y = "Predicted Admission Rate")
+
+
+```
+
+Calculate Residuals
+Two types of diagnostic plots are generated for model evaluation. First, a residual plot is created where residuals, the differences between the actual and predicted admission rates, are plotted against the predicted values (lm_univers_pred). A horizontal dashed red line at y=0 serves as a reference to easily identify systematic deviations. Second, a Quantile-Quantile (Q-Q) plot is generated for the residuals to check the normality of their distribution. In this plot, the sample quantiles of residuals are plotted against the theoretical quantiles of a standard normal distribution.
+```{r}
+# Calculate residuals
+residuals <- test_univers_clean$Admission.Rate - lm_univers_pred
+
+# Plot residuals
+ggplot() +
+  geom_point(aes(x = lm_univers_pred, y = residuals)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residuals vs. Predicted Admission Rate",
+       x = "Predicted Admission Rate",
+       y = "Residuals")
+{r}
+# Q-Q plot of residuals
+ggplot() +
+  geom_qq(data = data.frame(residuals), aes(sample = residuals)) +
+  geom_qq_line(data = data.frame(residuals), aes(sample = residuals)) +
+  labs(title = "Q-Q Plot of Residuals")
+
+```
+
+Support Vector Machine
+#Train dataset
+A Support Vector Regression (SVR) model is trained to predict university admission rates. The model employs a radial basis function kernel and epsilon-regression type. It utilizes SAT and ACT 75th percentile scores as well as the total number of applications as predictive variables. The training data used is training_univers_clean, and the resulting model is stored in the variable svr_univers_model. The choice of a radial kernel and epsilon-regression type would usually be driven by the specific nature and requirements of the data and problem at hand. 
+```{r}
+svr_univers_model <- svm(Admission.Rate ~ SATVR75 + SATMT75 + ACTEN75 + ACTMT75 + Applications, 
+                         data = training_univers_clean, 
+                         type = "eps-regression", 
+                         kernel = "radial")
+
+```
+
+Support Vector Machine 
+The trained Support Vector Regression (SVR) model (svr_univers_model) is used to make predictions on a test dataset (test_univers_clean). The predicted admission rates are stored in svr_univers_pred. To evaluate the model's performance, two standard error metrics are calculated:
+```{r}
+# Prediction
+svr_univers_pred <- predict(svr_univers_model, newdata = test_univers_clean)
+
+# Calculate Mean Absolute Error (MAE)
+mae_svr <- mean(abs(svr_univers_pred - test_univers_clean$Admission.Rate))
+
+# Calculate Root Mean Squared Error (RMSE)
+rmse_svr <- sqrt(mean((svr_univers_pred - test_univers_clean$Admission.Rate)^2))
+
+# Print the MAE and RMSE values for SVR
+print(mae_svr)
+print(rmse_svr)
+
+```
+
+#Visualize SVM
+A ggplot2-based scatter plot is generated to visualize the performance of the Support Vector Regression (SVR) model in predicting university admission rates. The plot features actual versus predicted admission rates using points, with a linear regression line overlaid in red for summarization. Additionally, a blue line of equality (slope = 1, intercept = 0) is included as a reference, showing where points would lie if the predictions were perfect.
+
+```{r}
+# Load necessary library
+library(ggplot2)
+
+# Create a data frame to hold the actual and predicted values
+results_df <- data.frame(Actual = test_univers_clean$Admission.Rate, 
+                         Predicted = svr_univers_pred)
+
+# Plot the results
+ggplot(results_df, aes(x = Actual, y = Predicted)) +
+  geom_point(alpha = 0.5) +                              # Plot actual vs predicted values
+  geom_smooth(method = 'lm', color = 'red') +            # Overlay a linear regression line
+  geom_abline(intercept = 0, slope = 1, color = "blue") + # Line of equality for reference
+  ggtitle("Actual vs. Predicted Admission Rates") +
+  xlab("Actual Admission Rates") +
+  ylab("Predicted Admission Rates") +
+  theme_minimal()
+
+```
+ 
+
